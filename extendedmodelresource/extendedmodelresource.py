@@ -18,8 +18,8 @@ class ExtendedDeclarativeMetaclass(ModelDeclarativeMetaclass):
     """
 
     def __new__(cls, name, bases, attrs):
-        new_class = super(ExtendedDeclarativeMetaclass, cls).__new__(cls,
-                            name, bases, attrs)
+        new_class = super(ExtendedDeclarativeMetaclass, cls).__new__(
+            cls, name, bases, attrs)
 
         opts = getattr(new_class, 'Meta', None)
         new_class._meta = ResourceOptions(opts)
@@ -44,7 +44,6 @@ class ExtendedDeclarativeMetaclass(ModelDeclarativeMetaclass):
 
 
 class ExtendedModelResource(ModelResource):
-
     __metaclass__ = ExtendedDeclarativeMetaclass
 
     def remove_api_resource_names(self, url_dict):
@@ -93,27 +92,31 @@ class ExtendedModelResource(ModelResource):
         # Due to the way Django parses URLs, ``get_multiple``
         # won't work without a trailing slash.
         return [
-            url(r"^(?P<resource_name>%s)%s$" %
-                    (self._meta.resource_name, trailing_slash()),
-                    self.wrap_view('dispatch_list'),
-                    name="api_dispatch_list"),
-            url(r"^(?P<resource_name>%s)/schema%s$" %
-                    (self._meta.resource_name, trailing_slash()),
-                    self.wrap_view('get_schema'),
-                    name="api_get_schema"),
-            url(r"^(?P<resource_name>%s)/set/(?P<%s_list>(%s;?)*)/$" %
-                    (self._meta.resource_name,
-                     self._meta.detail_uri_name,
-                     self.get_detail_uri_name_regex()),
-                    self.wrap_view('get_multiple'),
-                    name="api_get_multiple"),
-            url(r"^(?P<resource_name>%s)/(?P<%s>%s)%s$" %
-                    (self._meta.resource_name,
-                     self._meta.detail_uri_name,
-                     self.get_detail_uri_name_regex(),
-                     trailing_slash()),
-                     self.wrap_view('dispatch_detail'),
-                     name="api_dispatch_detail"),
+            url(
+                r"^(?P<resource_name>{0}){1}$".format(
+                    self._meta.resource_name, trailing_slash()),
+                self.wrap_view('dispatch_list'),
+                name="api_dispatch_list"),
+            url(
+                r"^(?P<resource_name>{0})/schema{1}$".format(
+                    self._meta.resource_name, trailing_slash()),
+                self.wrap_view('get_schema'),
+                name="api_get_schema"),
+            url(
+                r"^(?P<resource_name>{0})/set/(?P<{1}_list>({2};?)*)/$".format(
+                    self._meta.resource_name,
+                    self._meta.detail_uri_name,
+                    self.get_detail_uri_name_regex()),
+                self.wrap_view('get_multiple'),
+                name="api_get_multiple"),
+            url(
+                r"^(?P<resource_name>{0})/(?P<{1}>{2}){3}$".format(
+                    self._meta.resource_name,
+                    self._meta.detail_uri_name,
+                    self.get_detail_uri_name_regex(),
+                    trailing_slash()),
+                self.wrap_view('dispatch_detail'),
+                name="api_dispatch_detail"),
         ]
 
     def nested_urls(self):
@@ -123,15 +126,16 @@ class ExtendedModelResource(ModelResource):
         Each resource listed as Nested will generate one url.
         """
         def get_nested_url(nested_name):
-            return url(r"^(?P<resource_name>%s)/(?P<%s>%s)/"
-                        r"(?P<nested_name>%s)%s$" %
-                       (self._meta.resource_name,
-                        self._meta.detail_uri_name,
-                        self.get_detail_uri_name_regex(),
-                        nested_name,
-                        trailing_slash()),
-                       self.wrap_view('dispatch_nested'),
-                       name='api_dispatch_nested')
+            return url(
+                r"^(?P<resource_name>{0})/(?P<{1}>{2})/"
+                r"(?P<nested_name>{3}){4}$".format(
+                    self._meta.resource_name,
+                    self._meta.detail_uri_name,
+                    self.get_detail_uri_name_regex(),
+                    nested_name,
+                    trailing_slash()),
+                self.wrap_view('dispatch_nested'),
+                name='api_dispatch_nested')
 
         return [get_nested_url(nested_name)
                 for nested_name in self._nested.keys()]
@@ -164,10 +168,11 @@ class ExtendedModelResource(ModelResource):
         on this resource.
         """
         if self.detail_actions():
-            detail_url = "^(?P<resource_name>%s)/(?P<%s>%s)/" % (
-                            self._meta.resource_name,
-                            self._meta.detail_uri_name,
-                            self.get_detail_uri_name_regex()
+            detail_url = "^(?P<resource_name>{0})/(?P<{1}>{2}){3}".format(
+                self._meta.resource_name,
+                self._meta.detail_uri_name,
+                self.get_detail_uri_name_regex(),
+                trailing_slash()
             )
             return patterns('', (detail_url, include(self.detail_actions())))
 
@@ -193,8 +198,8 @@ class ExtendedModelResource(ModelResource):
         ``Authorization`` class.
         """
         if hasattr(self._meta.authorization, 'is_authorized_parent'):
-            return self._meta.authorization.is_authorized_parent(request,
-                        parent_object)
+            return self._meta.authorization.is_authorized_parent(
+                request, parent_object)
 
         return True
 
@@ -213,9 +218,10 @@ class ExtendedModelResource(ModelResource):
         if not self.is_authorized_over_parent(request, parent_object):
             stringified_kwargs = ', '.join(["%s=%s" % (k, v)
                                             for k, v in kwargs.items()])
-            raise self._meta.object_class.DoesNotExist("Couldn't find an "
-                    "instance of '%s' which matched '%s'." %
-                    (self._meta.object_class.__name__, stringified_kwargs))
+            raise self._meta.object_class.DoesNotExist(
+                "Couldn't find an instance of '{0}' which matched "
+                "'{1}'.".format(
+                    self._meta.object_class.__name__, stringified_kwargs))
 
         return parent_object
 
@@ -280,10 +286,10 @@ class ExtendedModelResource(ModelResource):
         theirselves.
         """
         kwargs = self.get_via_uri_resolver(uri)
-        return self.obj_get_no_auth_check(request=request,
-                        **self.remove_api_resource_names(kwargs))
+        return self.obj_get_no_auth_check(
+            request=request, **self.remove_api_resource_names(kwargs))
 
-    def obj_get_list(self, request=None, **kwargs):
+    def obj_get_list(self, bundle, **kwargs):
         """
         A ORM-specific implementation of ``obj_get_list``.
 
@@ -292,23 +298,23 @@ class ExtendedModelResource(ModelResource):
         """
         filters = {}
 
-        if hasattr(request, 'GET'):
+        if hasattr(bundle.request, 'GET'):
             # Grab a mutable copy.
-            filters = request.GET.copy()
+            filters = bundle.request.GET.copy()
 
         # Update with the provided kwargs.
         filters.update(self.real_remove_api_resource_names(kwargs))
         applicable_filters = self.build_filters(filters=filters)
 
         try:
-            base_object_list = self.apply_filters(request, applicable_filters)
-            return self.apply_proper_authorization_limits(request,
-                                                base_object_list, **kwargs)
+            base_object_list = self.apply_filters(
+                bundle.request, applicable_filters)
+            return self.authorized_read_list(base_object_list, bundle)
         except ValueError:
-            raise BadRequest("Invalid resource lookup data provided "
-                             "(mismatched type).")
+            raise http.BadRequest(
+                "Invalid resource lookup data provided (mismatched type).")
 
-    def obj_get(self, request=None, **kwargs):
+    def obj_get(self, bundle, **kwargs):
         """
         Same as the original ``obj_get`` but knows when it is being called to
         get an object from a nested resource uri.
@@ -316,79 +322,76 @@ class ExtendedModelResource(ModelResource):
         Performs authorization checks in every case.
         """
         try:
-            base_object_list = self.get_object_list(request).filter(
-                                **self.real_remove_api_resource_names(kwargs))
+            base_object_list = self.get_object_list(bundle.request).filter(
+                **self.real_remove_api_resource_names(kwargs))
+            stringified_kwargs = ', '.join([
+                "{0}={1}".format(k, v) for k, v in kwargs.items()])
 
-            object_list = self.apply_proper_authorization_limits(request,
-                                                base_object_list, **kwargs)
+            if len(base_object_list) <= 0:
+                raise self._meta.object_class.DoesNotExist(
+                    "Couldn't find an instance of '{0}' which matched "
+                    "'{1}'.".format(
+                        self._meta.object_class.__name__, stringified_kwargs))
+            elif len(base_object_list) > 1:
+                raise MultipleObjectsReturned(
+                    "More than '{0}' matched '{1}'.".format(
+                        self._meta.object_class.__name__, stringified_kwargs))
 
-            stringified_kwargs = ', '.join(["%s=%s" % (k, v)
-                                            for k, v in kwargs.items()])
-
-            if len(object_list) <= 0:
-                raise self._meta.object_class.DoesNotExist("Couldn't find an "
-                            "instance of '%s' which matched '%s'." %
-                            (self._meta.object_class.__name__,
-                             stringified_kwargs))
-            elif len(object_list) > 1:
-                raise MultipleObjectsReturned("More than '%s' matched '%s'." %
-                        (self._meta.object_class.__name__, stringified_kwargs))
-
-            return object_list[0]
+            bundle.obj = base_object_list[0]
+            self.authorized_read_detail(base_object_list, bundle)
+            return bundle.obj
         except ValueError:
-            raise NotFound("Invalid resource lookup data provided (mismatched "
-                           "type).")
+            raise NotFound(
+                "Invalid resource lookup data provided (mismatched type).")
 
-    def cached_obj_get(self, request=None, **kwargs):
+    def cached_obj_get(self, bundle, **kwargs):
         """
         A version of ``obj_get`` that uses the cache as a means to get
         commonly-accessed data faster.
         """
-        cache_key = self.generate_cache_key('detail',
-                                **self.real_remove_api_resource_names(kwargs))
-        bundle = self._meta.cache.get(cache_key)
+        cache_key = self.generate_cache_key(
+            'detail', **self.real_remove_api_resource_names(kwargs))
+        cached_bundle = self._meta.cache.get(cache_key)
 
-        if bundle is None:
-            bundle = self.obj_get(request=request, **kwargs)
+        if cached_bundle is None:
+            bundle = self.obj_get(bundle=bundle, **kwargs)
             self._meta.cache.set(cache_key, bundle)
 
         return bundle
 
-    def obj_create(self, bundle, request=None, **kwargs):
+    def obj_create(self, bundle, **kwargs):
         """
         A ORM-specific implementation of ``obj_create``.
         """
         kwargs = self.real_remove_api_resource_names(kwargs)
-        return super(ExtendedModelResource, self).obj_create(bundle, request,
-                                                             **kwargs)
+        return super(ExtendedModelResource, self).obj_create(bundle, **kwargs)
 
-    def obj_update(self, bundle, request=None, skip_errors=False, **kwargs):
+    def obj_update(self, bundle, skip_errors=False, **kwargs):
         """
         A ORM-specific implementation of ``obj_update``.
         """
         kwargs = self.real_remove_api_resource_names(kwargs)
-        return super(ExtendedModelResource, self).obj_update(bundle, request,
-                                            skip_errors=skip_errors, **kwargs)
+        return super(ExtendedModelResource, self).obj_update(
+            bundle, skip_errors=skip_errors, **kwargs)
 
-    def obj_delete_list(self, request=None, **kwargs):
+    def obj_delete_list(self, bundle, **kwargs):
         """
         A ORM-specific implementation of ``obj_delete_list``.
 
         Takes optional ``kwargs``, which can be used to narrow the query.
         """
-        base_object_list = self.get_object_list(request).filter(
-                                **self.real_remove_api_resource_names(kwargs))
-        authed_object_list = self.apply_proper_authorization_limits(request,
-                                                    base_object_list, **kwargs)
+        kwargs = self.real_remove_api_resource_names(kwargs)
+        super(ExtendedModelResource, self).obj_delete_list(bundle, **kwargs)
 
-        if hasattr(authed_object_list, 'delete'):
-            # It's likely a ``QuerySet``. Call ``.delete()`` for efficiency.
-            authed_object_list.delete()
-        else:
-            for authed_obj in authed_object_list:
-                authed_obj.delete()
+    def obj_delete_list_for_update(self, bundle, **kwargs):
+        """
+        A ORM-specific implementation of ``obj_delete_list_for_update``.
+        """
+        kwargs = self.real_remove_api_resource_names(kwargs)
+        super(ExtendedModelResource, self).obj_delete_list_for_update(
+            bundle, **kwargs)
 
-    def obj_delete(self, request=None, **kwargs):
+    def obj_delete(self, bundle, **kwargs):
         """
         A ORM-specific implementation of ``obj_delete``.
 
@@ -396,15 +399,7 @@ class ExtendedModelResource(ModelResource):
         the instance.
         """
         kwargs = self.real_remove_api_resource_names(kwargs)
-        obj = kwargs.pop('_obj', None)
-
-        if not hasattr(obj, 'delete'):
-            try:
-                obj = self.obj_get(request, **kwargs)
-            except ObjectDoesNotExist:
-                raise NotFound("A model instance matching the provided arguments could not be found.")
-
-        obj.delete()
+        super(ExtendedModelResource, self).obj_delete(bundle, **kwargs)
 
     def obj_get_no_auth_check(self, request=None, **kwargs):
         """
@@ -421,22 +416,23 @@ class ExtendedModelResource(ModelResource):
                                             for k, v in kwargs.items()])
 
             if len(object_list) <= 0:
-                raise self._meta.object_class.DoesNotExist("Couldn't find an "
-                            "instance of '%s' which matched '%s'." %
-                            (self._meta.object_class.__name__,
-                             stringified_kwargs))
+                raise self._meta.object_class.DoesNotExist(
+                    "Couldn't find an instance of '{0}' which matched "
+                    "'{1}'.".format(
+                        self._meta.object_class.__name__, stringified_kwargs))
             elif len(object_list) > 1:
-                raise MultipleObjectsReturned("More than '%s' matched '%s'." %
-                        (self._meta.object_class.__name__, stringified_kwargs))
+                raise MultipleObjectsReturned(
+                    "More than '{0}' matched '{1}'.".format(
+                        self._meta.object_class.__name__, stringified_kwargs))
 
             return object_list[0]
         except ValueError:
             raise NotFound("Invalid resource lookup data provided (mismatched "
                            "type).")
 
-    def apply_nested_authorization_limits(self, request, object_list,
-                                               parent_resource, parent_object,
-                                               nested_name):
+    def apply_nested_authorization_limits(
+            self, request, object_list, parent_resource, parent_object,
+            nested_name):
         """
         Allows the ``Authorization`` class to further limit the object list.
         Also a hook to customize per ``Resource``.
@@ -448,8 +444,8 @@ class ExtendedModelResource(ModelResource):
 
         return object_list
 
-    def apply_proper_authorization_limits(self, request, object_list,
-                                              **kwargs):
+    def apply_proper_authorization_limits(
+            self, request, object_list, **kwargs):
         """
         Decide which type of authorization to apply, if the resource is being
         used as nested or not.
@@ -459,10 +455,9 @@ class ExtendedModelResource(ModelResource):
             return self.apply_authorization_limits(request, object_list)
 
         # Used as nested!
-        return self.apply_nested_authorization_limits(request, object_list,
-                    parent_resource,
-                    kwargs.get('parent_object', None),
-                    kwargs.get('nested_name', None))
+        return self.apply_nested_authorization_limits(
+            request, object_list, parent_resource,
+            kwargs.get('parent_object', None), kwargs.get('nested_name', None))
 
     def dispatch_nested(self, request, **kwargs):
         """
@@ -478,8 +473,8 @@ class ExtendedModelResource(ModelResource):
         nested_field = self._nested[nested_name]
 
         try:
-            obj = self.parent_cached_obj_get(request=request,
-                        **self.remove_api_resource_names(kwargs))
+            obj = self.parent_cached_obj_get(
+                request=request, **self.remove_api_resource_names(kwargs))
         except ObjectDoesNotExist:
             return http.HttpNotFound()
         except MultipleObjectsReturned:
@@ -502,12 +497,9 @@ class ExtendedModelResource(ModelResource):
                 manager = nested_field.attribute(obj)
             else:
                 raise fields.ApiFieldError(
-                    "The model '%r' has an empty attribute '%s' \
-                    and doesn't allow a null value." % (
-                        obj,
-                        nested_field.attribute
-                    )
-                )
+                    "The model '{0:r}' has an empty attribute '{1}' and "
+                    "doesn't allow a null value.".format(
+                        obj, nested_field.attribute))
         except ObjectDoesNotExist:
             pass
 
@@ -534,8 +526,9 @@ class ExtendedModelResource(ModelResource):
             **kwargs
         )
 
-    def is_authorized_nested(self, request, nested_name,
-                               parent_resource, parent_object, object=None):
+    def is_authorized_nested(
+            self, request, nested_name, parent_resource, parent_object,
+            object=None):
         """
         Handles checking of permissions to see if the user has authorization
         to GET, POST, PUT, or DELETE this resource.  If ``object`` is provided,
@@ -571,13 +564,14 @@ class ExtendedModelResource(ModelResource):
         self.is_authenticated(request)
         self.throttle_check(request)
 
-        parent_resource = kwargs.get('parent_resource', None)
-        if parent_resource is None:
-            self.is_authorized(request)
-        else:
-            self.is_authorized_nested(request, kwargs['nested_name'],
-                                      parent_resource,
-                                      kwargs['parent_object'])
+        #TODO: Try to figure out how to fill this in correctly
+#        parent_resource = kwargs.get('parent_resource', None)
+#        if parent_resource is None:
+#            self.is_authorized(request)
+#        else:
+#            self.is_authorized_nested(request, kwargs['nested_name'],
+#                                      parent_resource,
+#                                      kwargs['parent_object'])
 
         # All clear. Process the request.
         request = convert_post_to_put(request)
@@ -603,6 +597,8 @@ class ExtendedModelResource(ModelResource):
 
         Should return a HttpResponse (200 OK).
         """
+        basic_bundle = self.build_bundle(request=request)
+
         try:
             # If call was made through Nested we should already have the
             # child object.
@@ -611,8 +607,9 @@ class ExtendedModelResource(ModelResource):
                 if obj is None:
                     return http.HttpNotFound()
             else:
-                obj = self.cached_obj_get(request=request,
-                                    **self.remove_api_resource_names(kwargs))
+                obj = self.cached_obj_get(
+                    bundle=basic_bundle,
+                    **self.remove_api_resource_names(kwargs))
         except AttributeError:
             return http.HttpNotFound()
         except ObjectDoesNotExist:
@@ -655,4 +652,3 @@ class ExtendedModelResource(ModelResource):
             raise NotImplementedError('You cannot patch a list on a nested'
                                       ' resource.')
         return super(ExtendedModelResource, self).patch_list(request, **kwargs)
-
