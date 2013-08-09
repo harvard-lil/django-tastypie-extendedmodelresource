@@ -216,8 +216,8 @@ class ExtendedModelResource(ModelResource):
 
         # If I am not authorized for the parent
         if not self.is_authorized_over_parent(request, parent_object):
-            stringified_kwargs = ', '.join(["%s=%s" % (k, v)
-                                            for k, v in kwargs.items()])
+            stringified_kwargs = ', '.join([
+                "{0}={1}".format(k, v) for k, v in kwargs.items()])
             raise self._meta.object_class.DoesNotExist(
                 "Couldn't find an instance of '{0}' which matched "
                 "'{1}'.".format(
@@ -254,8 +254,9 @@ class ExtendedModelResource(ModelResource):
         try:
             _view, _args, kwargs = resolve(chomped_uri)
         except Resolver404:
-            raise NotFound("The URL provided '%s' was not a link to a valid "
-                           "resource." % uri)
+            raise NotFound(
+                "The URL provided '{0}' was not a link to a valid "
+                "resource.".format(uri))
 
         return kwargs
 
@@ -412,8 +413,8 @@ class ExtendedModelResource(ModelResource):
         #       kwargs to know if we should check for auth?
         try:
             object_list = self.get_object_list(request).filter(**kwargs)
-            stringified_kwargs = ', '.join(["%s=%s" % (k, v)
-                                            for k, v in kwargs.items()])
+            stringified_kwargs = ', '.join([
+                "{0}={1}".format(k, v) for k, v in kwargs.items()])
 
             if len(object_list) <= 0:
                 raise self._meta.object_class.DoesNotExist(
@@ -437,7 +438,7 @@ class ExtendedModelResource(ModelResource):
         Allows the ``Authorization`` class to further limit the object list.
         Also a hook to customize per ``Resource``.
         """
-        method_name = 'apply_limits_nested_%s' % nested_name
+        method_name = 'apply_limits_nested_{0}'.format(nested_name)
         if hasattr(parent_resource._meta.authorization, method_name):
             method = getattr(parent_resource._meta.authorization, method_name)
             object_list = method(request, parent_object, object_list)
@@ -536,7 +537,7 @@ class ExtendedModelResource(ModelResource):
         checking.
         """
         # We use the authorization of the parent resource
-        method_name = 'is_authorized_nested_%s' % nested_name
+        method_name = 'is_authorized_nested_{0}'.format(nested_name)
         if hasattr(parent_resource._meta.authorization, method_name):
             method = getattr(parent_resource._meta.authorization, method_name)
             auth_result = method(request, parent_object, object)
@@ -552,11 +553,12 @@ class ExtendedModelResource(ModelResource):
         Same as the usual dispatch, but knows if its being called from a nested
         resource.
         """
-        allowed_methods = getattr(self._meta,
-                                  "%s_allowed_methods" % request_type, None)
+        allowed_methods = getattr(
+            self._meta, "{0}_allowed_methods".format(request_type), None)
         request_method = self.method_check(request, allowed=allowed_methods)
 
-        method = getattr(self, "%s_%s" % (request_method, request_type), None)
+        method = getattr(
+            self, "{0}_{1}".format(request_method, request_type), None)
 
         if method is None:
             raise ImmediateHttpResponse(response=http.HttpNotImplemented())
