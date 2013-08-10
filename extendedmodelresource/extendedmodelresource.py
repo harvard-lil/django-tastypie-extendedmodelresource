@@ -35,8 +35,7 @@ class ExtendedDeclarativeMetaclass(ModelDeclarativeMetaclass):
 
                     nested_fields[field_name] = field_object
                     if hasattr(field_object, 'contribute_to_class'):
-                        field_object.contribute_to_class(new_class,
-                                                         field_name)
+                        field_object.contribute_to_class(new_class, field_name)
 
         new_class._nested = nested_fields
 
@@ -203,7 +202,7 @@ class ExtendedModelResource(ModelResource):
 
         return True
 
-    def parent_obj_get(self, request=None, **kwargs):
+    def parent_obj_get(self, bundle, **kwargs):
         """
         Same as the original ``obj_get`` but called when a nested resource
         wants to get its parent.
@@ -212,10 +211,10 @@ class ExtendedModelResource(ModelResource):
         the parent resource.
         """
         kwargs = self.real_remove_api_resource_names(kwargs)
-        parent_object = self.get_object_list(request).get(**kwargs)
+        parent_object = self.get_object_list(bundle.request).get(**kwargs)
 
         # If I am not authorized for the parent
-        if not self.is_authorized_over_parent(request, parent_object):
+        if not self.is_authorized_over_parent(bundle.request, parent_object):
             stringified_kwargs = ', '.join([
                 "{0}={1}".format(k, v) for k, v in kwargs.items()])
             raise self._meta.object_class.DoesNotExist(
@@ -225,16 +224,16 @@ class ExtendedModelResource(ModelResource):
 
         return parent_object
 
-    def parent_cached_obj_get(self, request=None, **kwargs):
+    def parent_cached_obj_get(self, bundle, **kwargs):
         """
         Same as the original ``cached_obj_get`` but called when a nested
         resource wants to get its parent.
         """
         cache_key = self.generate_cache_key('detail', **kwargs)
-        bundle = self._meta.cache.get(cache_key)
+        cached_bundle = self._meta.cache.get(cache_key)
 
-        if bundle is None:
-            bundle = self.parent_obj_get(request=request, **kwargs)
+        if cached_bundle is None:
+            bundle = self.parent_obj_get(bundle=bundle, **kwargs)
             self._meta.cache.set(cache_key, bundle)
 
         return bundle
@@ -270,11 +269,12 @@ class ExtendedModelResource(ModelResource):
         """
         # TODO: improve this to get parent resource & object from uri too?
         kwargs = self.get_via_uri_resolver(uri)
-        return self.obj_get(nested_name=nested_name,
-                            parent_resource=parent_resource,
-                            parent_object=parent_object,
-                            request=request,
-                            **self.remove_api_resource_names(kwargs))
+        return self.obj_get(
+            nested_name=nested_name,
+            parent_resource=parent_resource,
+            parent_object=parent_object,
+            request=request,
+            **self.remove_api_resource_names(kwargs))
 
     def get_via_uri_no_auth_check(self, uri, request=None):
         """
@@ -308,8 +308,12 @@ class ExtendedModelResource(ModelResource):
         applicable_filters = self.build_filters(filters=filters)
 
         try:
-            base_object_list = self.apply_filters(
-                bundle.request, applicable_filters)
+            if 'related_manager' in kwargs:
+                base_object_list = kwargs['related_manager'].filter(
+                    **applicable_filters)
+            else:
+                base_object_list = self.apply_filters(
+                    bundle.request, applicable_filters)
             return self.authorized_read_list(base_object_list, bundle)
         except ValueError:
             raise http.BadRequest(
@@ -473,9 +477,10 @@ class ExtendedModelResource(ModelResource):
         nested_name = kwargs.pop('nested_name')
         nested_field = self._nested[nested_name]
 
+        basic_bundle = self.build_bundle(request=request)
         try:
             obj = self.parent_cached_obj_get(
-                request=request, **self.remove_api_resource_names(kwargs))
+                bundle=basic_bundle, **self.remove_api_resource_names(kwargs))
         except ObjectDoesNotExist:
             return http.HttpNotFound()
         except MultipleObjectsReturned:
@@ -488,7 +493,7 @@ class ExtendedModelResource(ModelResource):
         nested_resource = nested_field.to_class()
         nested_resource._meta.api_name = self._meta.api_name
 
-        # TODO: comment further to make sense of this block
+        # Get the nested resource's manager for further queries
         manager = None
         try:
             if isinstance(nested_field.attribute, basestring):
@@ -515,11 +520,8 @@ class ExtendedModelResource(ModelResource):
             dispatch_type = 'list'
             kwargs['related_manager'] = manager
             # 'pk' will refer to the parent, so we remove it.
-            if 'pk' in kwargs:
-                del kwargs['pk']
-            # Update with the related manager's filters, which will link to
-            # the parent.
-            kwargs.update(manager.core_filters)
+            if self._meta.detail_uri_name in kwargs:
+                del kwargs[self._meta.detail_uri_name]
 
         return nested_resource.dispatch(
             dispatch_type,
