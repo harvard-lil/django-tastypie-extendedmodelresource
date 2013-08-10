@@ -1,12 +1,10 @@
-from django.http import HttpResponse
 from django.core.exceptions import ObjectDoesNotExist, MultipleObjectsReturned
 from django.core.urlresolvers import get_script_prefix, resolve, Resolver404
 from django.conf.urls.defaults import patterns, url, include
-
 from tastypie import fields, http
-from tastypie.exceptions import NotFound, ImmediateHttpResponse
-from tastypie.resources import ResourceOptions, ModelDeclarativeMetaclass, \
-    ModelResource, convert_post_to_put
+from tastypie.exceptions import NotFound
+from tastypie.resources import (
+    ResourceOptions, ModelDeclarativeMetaclass, ModelResource)
 from tastypie.utils import trailing_slash
 
 
@@ -484,8 +482,8 @@ class ExtendedModelResource(ModelResource):
         except ObjectDoesNotExist:
             return http.HttpNotFound()
         except MultipleObjectsReturned:
-            return http.HttpMultipleChoices("More than one parent resource is "
-                                            "found at this URI.")
+            return http.HttpMultipleChoices(
+                "More than one parent resource is found at this URI.")
 
         # The nested resource needs to get the api_name from its parent because
         # it is possible that the resource being used as nested is not
@@ -528,69 +526,6 @@ class ExtendedModelResource(ModelResource):
             request,
             **kwargs
         )
-
-    def is_authorized_nested(
-            self, request, nested_name, parent_resource, parent_object,
-            object=None):
-        """
-        Handles checking of permissions to see if the user has authorization
-        to GET, POST, PUT, or DELETE this resource.  If ``object`` is provided,
-        the authorization backend can apply additional row-level permissions
-        checking.
-        """
-        # We use the authorization of the parent resource
-        method_name = 'is_authorized_nested_{0}'.format(nested_name)
-        if hasattr(parent_resource._meta.authorization, method_name):
-            method = getattr(parent_resource._meta.authorization, method_name)
-            auth_result = method(request, parent_object, object)
-
-            if isinstance(auth_result, HttpResponse):
-                raise ImmediateHttpResponse(response=auth_result)
-
-            if not auth_result is True:
-                raise ImmediateHttpResponse(response=http.HttpUnauthorized())
-
-    def dispatch(self, request_type, request, **kwargs):
-        """
-        Same as the usual dispatch, but knows if its being called from a nested
-        resource.
-        """
-        allowed_methods = getattr(
-            self._meta, "{0}_allowed_methods".format(request_type), None)
-        request_method = self.method_check(request, allowed=allowed_methods)
-
-        method = getattr(
-            self, "{0}_{1}".format(request_method, request_type), None)
-
-        if method is None:
-            raise ImmediateHttpResponse(response=http.HttpNotImplemented())
-
-        self.is_authenticated(request)
-        self.throttle_check(request)
-
-        #TODO: Try to figure out how to fill this in correctly
-#        parent_resource = kwargs.get('parent_resource', None)
-#        if parent_resource is None:
-#            self.is_authorized(request)
-#        else:
-#            self.is_authorized_nested(request, kwargs['nested_name'],
-#                                      parent_resource,
-#                                      kwargs['parent_object'])
-
-        # All clear. Process the request.
-        request = convert_post_to_put(request)
-        response = method(request, **kwargs)
-
-        # Add the throttled request.
-        self.log_throttled_access(request)
-
-        # If what comes back isn't a ``HttpResponse``, assume that the
-        # request was accepted and that some action occurred. This also
-        # prevents Django from freaking out.
-        if not isinstance(response, HttpResponse):
-            return http.HttpNoContent()
-
-        return response
 
     def get_detail(self, request, **kwargs):
         """
