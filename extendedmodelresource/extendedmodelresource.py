@@ -425,7 +425,7 @@ class ExtendedModelResource(ModelResource):
         basic_bundle = self.build_bundle(request=request)
         try:
             obj = self.cached_obj_get(
-                request=request, **self.remove_api_resource_names(kwargs))
+                bundle=basic_bundle, **self.remove_api_resource_names(kwargs))
         except ObjectDoesNotExist:
             return http.HttpNotFound()
         except MultipleObjectsReturned:
