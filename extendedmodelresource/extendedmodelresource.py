@@ -186,56 +186,6 @@ class ExtendedModelResource(ModelResource):
         urls = self.prepend_urls() + self.base_urls() + self.nested_urls()
         return patterns('', *urls) + self.detail_actions_urlpatterns()
 
-    def is_authorized_over_parent(self, request, parent_object):
-        """
-        Allows the ``Authorization`` class to check if a request to a nested
-        resource has permissions over the parent.
-
-        Will call the ``is_authorized_parent`` function of the
-        ``Authorization`` class.
-        """
-        if hasattr(self._meta.authorization, 'is_authorized_parent'):
-            return self._meta.authorization.is_authorized_parent(
-                request, parent_object)
-
-        return True
-
-    def parent_obj_get(self, bundle, **kwargs):
-        """
-        Same as the original ``obj_get`` but called when a nested resource
-        wants to get its parent.
-
-        Will check authorization to see if the request is allowed to act on
-        the parent resource.
-        """
-        kwargs = self.real_remove_api_resource_names(kwargs)
-        parent_object = self.get_object_list(bundle.request).get(**kwargs)
-
-        # If I am not authorized for the parent
-        if not self.is_authorized_over_parent(bundle.request, parent_object):
-            stringified_kwargs = ', '.join([
-                "{0}={1}".format(k, v) for k, v in kwargs.items()])
-            raise self._meta.object_class.DoesNotExist(
-                "Couldn't find an instance of '{0}' which matched "
-                "'{1}'.".format(
-                    self._meta.object_class.__name__, stringified_kwargs))
-
-        return parent_object
-
-    def parent_cached_obj_get(self, bundle, **kwargs):
-        """
-        Same as the original ``cached_obj_get`` but called when a nested
-        resource wants to get its parent.
-        """
-        cache_key = self.generate_cache_key('detail', **kwargs)
-        cached_bundle = self._meta.cache.get(cache_key)
-
-        if cached_bundle is None:
-            bundle = self.parent_obj_get(bundle=bundle, **kwargs)
-            self._meta.cache.set(cache_key, bundle)
-
-        return bundle
-
     def get_via_uri_resolver(self, uri):
         """
         Do the work of the original ``get_via_uri`` except calling ``obj_get``.
@@ -466,9 +416,6 @@ class ExtendedModelResource(ModelResource):
         """
         Dispatch a request to the nested resource.
         """
-        # We don't check for is_authorized here since it will be
-        # parent_cached_obj_get which will check that we have permissions
-        # over the parent.
         self.is_authenticated(request)
         self.throttle_check(request)
 
@@ -477,8 +424,8 @@ class ExtendedModelResource(ModelResource):
 
         basic_bundle = self.build_bundle(request=request)
         try:
-            obj = self.parent_cached_obj_get(
-                bundle=basic_bundle, **self.remove_api_resource_names(kwargs))
+            obj = self.cached_obj_get(
+                request=request, **self.remove_api_resource_names(kwargs))
         except ObjectDoesNotExist:
             return http.HttpNotFound()
         except MultipleObjectsReturned:
@@ -554,8 +501,8 @@ class ExtendedModelResource(ModelResource):
         except ObjectDoesNotExist:
             return http.HttpNotFound()
         except MultipleObjectsReturned:
-            return http.HttpMultipleChoices("More than one resource is found "
-                                            "at this URI.")
+            return http.HttpMultipleChoices(
+                "More than one resource is found at this URI.")
 
         bundle = self.build_bundle(obj=obj, request=request)
         bundle = self.full_dehydrate(bundle)
