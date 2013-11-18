@@ -1,6 +1,6 @@
 from django.core.exceptions import ObjectDoesNotExist, MultipleObjectsReturned
 from django.core.urlresolvers import get_script_prefix, resolve, Resolver404
-from django.conf.urls.defaults import patterns, url, include
+from django.conf.urls import patterns, url, include
 from tastypie import fields, http
 from tastypie.exceptions import NotFound
 from tastypie.resources import (
@@ -441,7 +441,7 @@ class ExtendedModelResource(ModelResource):
         # Get the nested resource's manager for further queries
         manager = None
         try:
-            if isinstance(nested_field.attribute, basestring):
+            if isinstance(nested_field.attribute, str):
                 name = nested_field.attribute
                 manager = getattr(obj, name, None)
             elif callable(nested_field.attribute):
