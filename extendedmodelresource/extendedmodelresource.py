@@ -1,6 +1,7 @@
 from django.core.exceptions import ObjectDoesNotExist, MultipleObjectsReturned
 from django.core.urlresolvers import get_script_prefix, resolve, Resolver404
 from django.conf.urls import patterns, url, include
+import six
 from tastypie import fields, http
 from tastypie.exceptions import NotFound
 from tastypie.resources import (
@@ -40,8 +41,8 @@ class ExtendedDeclarativeMetaclass(ModelDeclarativeMetaclass):
         return new_class
 
 
-class ExtendedModelResource(ModelResource):
-    __metaclass__ = ExtendedDeclarativeMetaclass
+class ExtendedModelResource(six.with_metaclass(
+    ExtendedDeclarativeMetaclass, ModelResource)):
 
     def remove_api_resource_names(self, url_dict):
         """
