@@ -257,12 +257,13 @@ class ExtendedModelResource(six.with_metaclass(
         applicable_filters = self.build_filters(filters=filters)
 
         try:
+            base_object_list = self.apply_filters(bundle.request, applicable_filters)
+
             if 'related_manager' in kwargs:
-                base_object_list = kwargs['related_manager'].filter(
-                    **applicable_filters)
-            else:
-                base_object_list = self.apply_filters(
-                    bundle.request, applicable_filters)
+                # base_object_list list uses self._meta.queryset so we merge in the
+                # nested related_manager filters to make it behave like the related_manager
+                base_object_list = base_object_list.filter(**kwargs['related_manager'].core_filters)
+
             return self.authorized_read_list(base_object_list, bundle)
         except ValueError:
             raise http.BadRequest(
