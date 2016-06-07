@@ -1,6 +1,6 @@
 from django.core.exceptions import ObjectDoesNotExist, MultipleObjectsReturned
 from django.core.urlresolvers import get_script_prefix, resolve, Resolver404
-from django.conf.urls import patterns, url, include
+from django.conf.urls import url, include
 import six
 from tastypie import fields, http
 from tastypie.exceptions import NotFound
@@ -172,7 +172,7 @@ class ExtendedModelResource(six.with_metaclass(
                 self.get_detail_uri_name_regex(),
                 trailing_slash()
             )
-            return patterns('', (detail_url, include(self.detail_actions())))
+            return [(detail_url, include(self.detail_actions()))]
 
         return []
 
@@ -185,7 +185,7 @@ class ExtendedModelResource(six.with_metaclass(
         well as detail actions urls.
         """
         urls = self.prepend_urls() + self.base_urls() + self.nested_urls()
-        return patterns('', *urls) + self.detail_actions_urlpatterns()
+        return urls + self.detail_actions_urlpatterns()
 
     def get_via_uri_resolver(self, uri):
         """
